@@ -6,308 +6,321 @@
 <title>Loot Box</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
-  // Defined early so inline onerror on chest img can call it before body script loads
-  function handleChestImgError() {
-    var idle = document.getElementById('chest-idle');
-    var ph   = document.getElementById('chest-idle-placeholder');
-    if (idle) idle.style.display = 'none';
-    if (ph)   ph.style.display   = 'flex';
-  }
+  // Early-defined fallbacks so inline onerror works before body script loads
+  function _chestIdleErr()  { var e=document.getElementById('chest-idle'),p=document.getElementById('chest-idle-ph'); if(e)e.style.display='none'; if(p)p.style.display='flex'; }
+  function _chestOpenErr()  { var e=document.getElementById('chest-open'),p=document.getElementById('chest-open-ph'); if(e)e.style.display='none'; if(p)p.style.display='flex'; }
 </script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* ── Reset & base ───────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  :root {
-    --c-iron:    #8a8a8a;
-    --c-bronze:  #cd7f32;
-    --c-silver:  #c0c0c0;
-    --c-gold:    #ffd700;
-    --c-diamond: #b9f2ff;
-    --tier-color: var(--c-iron);
-  }
+:root {
+  --bg:         #010123;
+  --c-iron:     #8a8a8a;
+  --c-bronze:   #cd7f32;
+  --c-silver:   #c0c0c0;
+  --c-gold:     #ffd700;
+  --c-diamond:  #b9f2ff;
+  --tier-color: #ffffff;
+  --chest-size: 420px;
+}
 
-  html, body {
-    height: 100%;
-    overflow: hidden;
-    background: #1a1a2e;
-    color: #fff;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    user-select: none;
-    -webkit-user-select: none;
-  }
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+}
 
-  #app {
-    display: flex;
-    flex-direction: column;
-    height: 100dvh;
-    max-width: 480px;
-    margin: 0 auto;
-    position: relative;
-  }
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 520px;
+  margin: 0 auto;
+  position: relative;
+}
 
-  /* ── Key selector (top 20%) ── */
-  #key-section {
-    flex: 0 0 20%;
-    display: flex;
-    align-items: center;
-    padding: 0 8px;
-  }
+/* ── Key selector — top 20% ─────────────────────────────────────── */
+#key-section {
+  flex: 0 0 20%;
+  display: flex;
+  align-items: center;
+  min-height: 0;
+}
 
-  #key-scroll {
-    display: flex;
-    gap: 16px;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding: 8px 16px;
-    width: 100%;
-    align-items: center;
-  }
-  #key-scroll::-webkit-scrollbar { display: none; }
+#key-scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 6px 20px;
+  width: 100%;
+  align-items: flex-start;
+}
+#key-scroll::-webkit-scrollbar { display: none; }
 
-  .key-item {
-    flex: 0 0 auto;
-    scroll-snap-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    cursor: pointer;
-    transition: transform 0.2s ease, filter 0.2s ease;
-  }
+.key-item {
+  flex: 0 0 auto;
+  scroll-snap-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  padding: 8px;
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+}
 
-  .key-item .key-img-wrap {
-    width: 72px;
-    height: 72px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 12px;
-  }
+.key-item img,
+.key-item .key-ph {
+  width: 86px;
+  height: 86px;
+  object-fit: contain;
+  display: block;
+}
 
-  .key-item img,
-  .key-item .key-placeholder {
-    width: 72px;
-    height: 72px;
-    object-fit: contain;
-    border-radius: 12px;
-  }
+.key-item img {
+  mix-blend-mode: screen;
+}
 
-  .key-placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 32px;
-    border-radius: 12px;
-  }
+.key-ph {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  border-radius: 10px;
+}
 
-  .key-item .key-cost {
-    font-size: 11px;
-    color: #aaa;
-    white-space: nowrap;
-  }
+.key-item .key-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #bbb;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  line-height: 1.2;
+}
 
-  .key-item.selected {
-    transform: scale(1.15);
-    filter: drop-shadow(0 0 8px var(--tier-glow, #fff));
-  }
+.key-item .key-cost {
+  font-size: 11px;
+  color: #888;
+  line-height: 1;
+}
 
-  /* ── Balance (10%) ── */
-  #balance-section {
-    flex: 0 0 10%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
+.key-item.selected {
+  transform: scale(1.15);
+}
 
-  #balance-display {
-    font-size: 26px;
-    font-weight: 700;
-    letter-spacing: 1px;
-  }
+/* ── Balance — 10% ──────────────────────────────────────────────── */
+#balance-section {
+  flex: 0 0 10%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
 
-  /* ── Open button ── */
-  #btn-section {
-    flex: 0 0 64px;
-    display: flex;
-    align-items: center;
-    padding: 0 24px;
-  }
+#balance-display {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
 
-  #open-btn {
-    width: 100%;
-    height: 48px;
-    border: none;
-    border-radius: 14px;
-    font-size: 17px;
-    font-weight: 700;
-    cursor: pointer;
-    background: linear-gradient(135deg, #6e40c9, #a855f7);
-    color: #fff;
-    transition: opacity 0.2s, transform 0.1s;
-    letter-spacing: 0.5px;
-  }
-  #open-btn:active:not(:disabled) { transform: scale(0.97); }
-  #open-btn:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-  }
+/* ── Open button ────────────────────────────────────────────────── */
+#btn-section {
+  flex: 0 0 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 24px;
+}
 
-  /* ── Chest area (rest ≈ 50%) ── */
-  #chest-section {
-    flex: 1 1 auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-  }
+#open-btn {
+  width: min(280px, 100%);
+  height: 48px;
+  border: none;
+  border-radius: 14px;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(135deg, #6e40c9, #a855f7);
+  color: #fff;
+  letter-spacing: 0.5px;
+  transition: opacity 0.2s, transform 0.1s;
+}
+#open-btn:active:not(:disabled) { transform: scale(0.97); }
+#open-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
+/* ── Chest section — rest of space ─────────────────────────────── */
+#chest-section {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  position: relative;
+}
+
+/* Chest wrap: NO bg, NO border, NO border-radius */
+#chest-wrap {
+  position: relative;
+  width: var(--chest-size);
+  height: var(--chest-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#chest-idle,
+#chest-video,
+#chest-open {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+#chest-idle  { display: block; }
+#chest-video { mix-blend-mode: screen; display: none; }
+#chest-open  { display: none;  }
+
+/* Fallback placeholders (shown when image fails) */
+#chest-idle-ph,
+#chest-open-ph {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 96px;
+}
+
+/* Shake keyframe */
+@keyframes chestShake {
+  0%,100% { transform: translateX(0); }
+  15%      { transform: translateX(-10px); }
+  30%      { transform: translateX(10px); }
+  45%      { transform: translateX(-7px); }
+  60%      { transform: translateX(7px); }
+  75%      { transform: translateX(-4px); }
+  90%      { transform: translateX(4px); }
+}
+#chest-wrap.shaking { animation: chestShake 0.35s ease; }
+
+/* Particle canvas — sits over the chest wrap */
+#particle-canvas {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* ── Prize modal ────────────────────────────────────────────────── */
+#modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+#modal-overlay.visible {
+  opacity: 1;
+  pointer-events: all;
+}
+
+#modal-card {
+  background: #11152a;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 24px;
+  padding: 40px 32px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(340px, 88vw);
+  transform: scale(0);
+  opacity: 0;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+              opacity  0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+#modal-overlay.visible #modal-card {
+  transform: scale(1);
+  opacity: 1;
+}
+
+#modal-tier-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--tier-color);
+  letter-spacing: 0.5px;
+}
+#modal-label {
+  font-size: 12px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+}
+#modal-value {
+  font-size: 88px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--tier-color);
+  text-shadow: 0 0 40px var(--tier-color);
+}
+#collect-btn {
+  margin-top: 14px;
+  width: 100%;
+  height: 48px;
+  border: none;
+  border-radius: 14px;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(135deg, #6e40c9, #a855f7);
+  color: #fff;
+  letter-spacing: 0.5px;
+  transition: transform 0.1s;
+}
+#collect-btn:active { transform: scale(0.97); }
+
+/* ── Mobile: chest = 90vw ───────────────────────────────────────── */
+@media (max-width: 480px) {
   #chest-wrap {
-    position: relative;
-    width: 300px;
-    height: 300px;
+    width: 90vw;
+    height: 90vw;
   }
-
-  #chest-idle {
-    width: 300px;
-    height: 300px;
-    object-fit: contain;
-    display: block;
-  }
-
-  #chest-idle-placeholder {
-    width: 300px;
-    height: 300px;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    font-size: 120px;
-    background: #2a2a4a;
-    border-radius: 24px;
-  }
-
-  #chest-open-div {
-    display: none;
-    width: 300px;
-    height: 300px;
-    background-image: url('assets/chest/chest-sprite-open.webp');
-    background-size: 5400px 300px;
-    background-repeat: no-repeat;
-    background-position: 0 0;
-  }
-
-  @keyframes chestOpen {
-    to { background-position: -5100px 0; }
-  }
-
-  @keyframes chestShake {
-    0%   { transform: translateX(0); }
-    15%  { transform: translateX(-8px); }
-    30%  { transform: translateX(8px); }
-    45%  { transform: translateX(-6px); }
-    60%  { transform: translateX(6px); }
-    75%  { transform: translateX(-3px); }
-    90%  { transform: translateX(3px); }
-    100% { transform: translateX(0); }
-  }
-
-  #chest-wrap.shaking { animation: chestShake 0.3s ease; }
-
-  /* Particle canvas */
   #particle-canvas {
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    pointer-events: none;
-    z-index: 10;
-  }
-
-  /* ── Modal ── */
-  #modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s ease;
-  }
-  #modal-overlay.visible {
-    opacity: 1;
-    pointer-events: all;
-  }
-
-  #modal-card {
-    background: #1e1e3f;
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 24px;
-    padding: 36px 32px 28px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    width: min(340px, 88vw);
-    transform: scale(0);
-    opacity: 0;
-    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
-                opacity 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-  #modal-overlay.visible #modal-card {
-    transform: scale(1);
-    opacity: 1;
-  }
-
-  #modal-tier-name {
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--tier-color);
-    letter-spacing: 0.5px;
-  }
-
-  #modal-label {
-    font-size: 13px;
-    color: #aaa;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-
-  #modal-value {
-    font-size: 80px;
-    font-weight: 900;
-    line-height: 1;
-    color: var(--tier-color);
-    text-shadow: 0 0 30px var(--tier-color);
-  }
-
-  #collect-btn {
-    margin-top: 12px;
     width: 100%;
-    height: 48px;
-    border: none;
-    border-radius: 14px;
-    font-size: 17px;
-    font-weight: 700;
-    cursor: pointer;
-    background: linear-gradient(135deg, #6e40c9, #a855f7);
-    color: #fff;
-    letter-spacing: 0.5px;
-    transition: transform 0.1s;
+    height: 100%;
   }
-  #collect-btn:active { transform: scale(0.97); }
+}
 
-  /* ── Reduced motion ── */
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
-      animation-duration: 0.001ms !important;
-      transition-duration: 0.001ms !important;
-    }
+/* ── Reduced motion ─────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
   }
+}
 </style>
 </head>
 <body>
@@ -331,17 +344,29 @@
   <!-- Chest -->
   <section id="chest-section">
     <div id="chest-wrap">
-      <img id="chest-idle" src="assets/chest/chest-idle.webp" alt="Chest"
-           onerror="handleChestImgError()" />
-      <div id="chest-idle-placeholder">📦</div>
-      <div id="chest-open-div"></div>
+      <img id="chest-idle"
+           src="assets/chest/chest_base.png"
+           alt="Chest"
+           onerror="_chestIdleErr()" />
+      <div id="chest-idle-ph">📦</div>
+
+      <video id="chest-video" muted playsinline preload="auto">
+        <source src="assets/chest/chestanimation.webm" type="video/webm">
+      </video>
+
+      <img id="chest-open"
+           src="assets/chest/chest_base_open.png"
+           alt="Open Chest"
+           onerror="_chestOpenErr()" />
+      <div id="chest-open-ph">✨📦✨</div>
+
+      <canvas id="particle-canvas"></canvas>
     </div>
-    <canvas id="particle-canvas"></canvas>
   </section>
 
 </div>
 
-<!-- Modal -->
+<!-- Prize modal -->
 <div id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-tier-name">
   <div id="modal-card">
     <div id="modal-tier-name">Iron Chest</div>
@@ -352,277 +377,282 @@
 </div>
 
 <script>
-// ── Telegram WebApp init ──────────────────────────────────────────
+'use strict';
+
+// ── Telegram init ────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   if (window.Telegram?.WebApp) Telegram.WebApp.ready();
 });
 
-// ── Data ─────────────────────────────────────────────────────────
+// ── Tier data ────────────────────────────────────────────────────
 const TIERS = [
-  { id: 'iron',    label: 'Iron',    color: '#8a8a8a', cost: 50,  pool: [1,2,3],     img: 'assets/keys/key-iron.webp' },
-  { id: 'bronze',  label: 'Bronze',  color: '#cd7f32', cost: 100, pool: [4,5,6],     img: 'assets/keys/key-bronze.webp' },
-  { id: 'silver',  label: 'Silver',  color: '#c0c0c0', cost: 200, pool: [7,8,9],     img: 'assets/keys/key-silver.webp' },
-  { id: 'gold',    label: 'Gold',    color: '#ffd700', cost: 400, pool: [10,11,12],  img: 'assets/keys/key-gold.webp' },
-  { id: 'diamond', label: 'Diamond', color: '#b9f2ff', cost: 800, pool: [13,14,15],  img: 'assets/keys/key-diamond.webp' },
+  { id:'iron',    label:'Iron',    color:'#8a8a8a', cost:50,  pool:[1,2,3],    img:'assets/keys/iron.png' },
+  { id:'bronze',  label:'Bronze',  color:'#cd7f32', cost:100, pool:[4,5,6],    img:'assets/keys/bronze.png' },
+  { id:'silver',  label:'Silver',  color:'#c0c0c0', cost:200, pool:[7,8,9],    img:'assets/keys/silver.png' },
+  { id:'gold',    label:'Gold',    color:'#ffd700', cost:400, pool:[10,11,12], img:'assets/keys/gold.png' },
+  { id:'diamond', label:'Diamond', color:'#b9f2ff', cost:800, pool:[13,14,15], img:'assets/keys/diamond.png' },
 ];
 
-// ── State ─────────────────────────────────────────────────────────
-let balance = 1500;
-let selectedTierIdx = null;
-let isAnimating = false;
+// ── State ────────────────────────────────────────────────────────
+let balance        = 1500;
+let selectedIdx    = null;
+let isAnimating    = false;
 
-// ── DOM refs ──────────────────────────────────────────────────────
-const keyScroll      = document.getElementById('key-scroll');
-const balanceDisplay = document.getElementById('balance-display');
-const openBtn        = document.getElementById('open-btn');
-const chestWrap      = document.getElementById('chest-wrap');
-const chestIdle      = document.getElementById('chest-idle');
-const chestIdlePh    = document.getElementById('chest-idle-placeholder');
-const chestOpenDiv   = document.getElementById('chest-open-div');
-const canvas         = document.getElementById('particle-canvas');
+// ── DOM ──────────────────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+const keyScroll      = $('key-scroll');
+const balanceDisplay = $('balance-display');
+const openBtn        = $('open-btn');
+const chestWrap      = $('chest-wrap');
+const chestIdle      = $('chest-idle');
+const chestIdlePh    = $('chest-idle-ph');
+const chestVideo     = $('chest-video');
+const chestOpen      = $('chest-open');
+const chestOpenPh    = $('chest-open-ph');
+const canvas         = $('particle-canvas');
 const ctx            = canvas.getContext('2d');
-const modalOverlay   = document.getElementById('modal-overlay');
-const modalTierName  = document.getElementById('modal-tier-name');
-const modalValue     = document.getElementById('modal-value');
-const collectBtn     = document.getElementById('collect-btn');
+const modalOverlay   = $('modal-overlay');
+const modalTierName  = $('modal-tier-name');
+const modalValue     = $('modal-value');
+const collectBtn     = $('collect-btn');
 
-// ── Chest idle image fallback ─────────────────────────────────────
-function handleChestImgError() {
-  chestIdle.style.display = 'none';
-  chestIdlePh.style.display = 'flex';
+// ── Chest state helpers ──────────────────────────────────────────
+function imgOk(el) { return el.complete && el.naturalWidth > 0; }
+
+function showIdle() {
+  chestIdle.style.display  = imgOk(chestIdle) ? 'block' : 'none';
+  chestIdlePh.style.display= imgOk(chestIdle) ? 'none'  : 'flex';
+  chestVideo.style.display = 'none';
+  chestOpen.style.display  = 'none';
+  chestOpenPh.style.display= 'none';
+}
+function showVideo() {
+  chestIdle.style.display  = 'none';
+  chestIdlePh.style.display= 'none';
+  chestVideo.style.display = 'block';
+  chestOpen.style.display  = 'none';
+  chestOpenPh.style.display= 'none';
+}
+function showOpenState() {
+  chestIdle.style.display  = 'none';
+  chestIdlePh.style.display= 'none';
+  chestVideo.style.display = 'none';
+  chestOpen.style.display  = imgOk(chestOpen) ? 'block' : 'none';
+  chestOpenPh.style.display= imgOk(chestOpen) ? 'none'  : 'flex';
 }
 
-// ── Build key selector ────────────────────────────────────────────
-function buildKeys() {
+// ── Build key selector ───────────────────────────────────────────
+(function buildKeys() {
   TIERS.forEach((tier, idx) => {
     const item = document.createElement('div');
     item.className = 'key-item';
-    item.dataset.idx = idx;
 
     const img = document.createElement('img');
-    img.alt = `${tier.label} key`;
-    img.width = 72;
-    img.height = 72;
+    img.alt    = `${tier.label} key`;
+    img.width  = 86;
+    img.height = 86;
     img.onerror = () => {
       const ph = document.createElement('div');
-      ph.className = 'key-placeholder';
-      ph.style.background = tier.color + '33';
-      ph.style.border = `2px solid ${tier.color}55`;
+      ph.className = 'key-ph';
+      ph.style.background = tier.color + '22';
+      ph.style.border     = `2px solid ${tier.color}44`;
       ph.textContent = '🗝️';
       img.replaceWith(ph);
     };
-    img.src = tier.img;  // set src after onerror so the handler is registered first
+    img.src = tier.img; // src set after onerror
+
+    const label = document.createElement('div');
+    label.className   = 'key-label';
+    label.textContent = tier.label;
 
     const cost = document.createElement('div');
-    cost.className = 'key-cost';
+    cost.className   = 'key-cost';
     cost.textContent = `🪙 ${tier.cost}`;
 
-    item.appendChild(img);
-    item.appendChild(cost);
+    item.append(img, label, cost);
     item.addEventListener('click', () => selectTier(idx));
     keyScroll.appendChild(item);
   });
-}
+})();
 
 function selectTier(idx) {
   if (isAnimating) return;
-  selectedTierIdx = idx;
+  selectedIdx = idx;
   const tier = TIERS[idx];
-
   document.querySelectorAll('.key-item').forEach((el, i) => {
-    el.classList.toggle('selected', i === idx);
-    el.style.setProperty('--tier-glow', i === idx ? tier.color : 'transparent');
+    const on = i === idx;
+    el.classList.toggle('selected', on);
+    el.style.setProperty('--item-glow', on ? tier.color : 'transparent');
   });
-
-  updateOpenBtn();
+  updateBtn();
 }
 
-// ── Balance counter animation ─────────────────────────────────────
-let balanceRafId = null;
-let balanceFrom  = balance;
-let balanceTo    = balance;
-let balanceStart = null;
+// ── Balance animation ────────────────────────────────────────────
+let rafBalance = null;
 
 function animateBalance(to) {
-  balanceFrom  = balance;
-  balanceTo    = to;
-  balanceStart = null;
+  const from  = balance;
+  let   start = null;
+  if (rafBalance) cancelAnimationFrame(rafBalance);
 
-  if (balanceRafId) cancelAnimationFrame(balanceRafId);
-
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduced) {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     balance = to;
     balanceDisplay.textContent = `🪙 ${balance}`;
     return;
   }
 
-  function step(ts) {
-    if (!balanceStart) balanceStart = ts;
-    const progress = Math.min((ts - balanceStart) / 400, 1);
-    const eased = 1 - Math.pow(1 - progress, 3);
-    const current = Math.round(balanceFrom + (balanceTo - balanceFrom) * eased);
-    balanceDisplay.textContent = `🪙 ${current}`;
-    if (progress < 1) {
-      balanceRafId = requestAnimationFrame(step);
-    } else {
-      balance = to;
-      balanceDisplay.textContent = `🪙 ${balance}`;
-    }
-  }
-  balanceRafId = requestAnimationFrame(step);
+  (function tick(ts) {
+    if (!start) start = ts;
+    const t   = Math.min((ts - start) / 400, 1);
+    const e   = 1 - Math.pow(1 - t, 3);
+    balanceDisplay.textContent = `🪙 ${Math.round(from + (to - from) * e)}`;
+    if (t < 1) rafBalance = requestAnimationFrame(tick);
+    else { balance = to; balanceDisplay.textContent = `🪙 ${balance}`; }
+  })(performance.now());
 }
 
-// ── Open button state ─────────────────────────────────────────────
-function updateOpenBtn() {
-  if (selectedTierIdx === null || isAnimating) {
-    openBtn.disabled = true;
-    return;
-  }
-  const tier = TIERS[selectedTierIdx];
-  openBtn.disabled = balance < tier.cost;
+function updateBtn() {
+  openBtn.disabled =
+    selectedIdx === null ||
+    isAnimating ||
+    balance < TIERS[selectedIdx].cost;
 }
 
-// ── Particles ─────────────────────────────────────────────────────
-function resizeCanvas() {
-  canvas.width  = window.innerWidth;
-  canvas.height = window.innerHeight;
+// ── Canvas particles ─────────────────────────────────────────────
+function syncCanvas() {
+  const r = chestWrap.getBoundingClientRect();
+  canvas.width  = r.width;
+  canvas.height = r.height;
 }
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
+window.addEventListener('resize', syncCanvas);
+syncCanvas();
 
-function burstParticles(tierColor) {
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduced) return;
+function burstParticles(color) {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  syncCanvas();
 
-  const rect  = chestWrap.getBoundingClientRect();
-  const cx    = rect.left + rect.width  / 2;
-  const cy    = rect.top  + rect.height / 2;
-  const COUNT = 40;
+  const cx = canvas.width  / 2;
+  const cy = canvas.height / 2;
 
-  const particles = Array.from({ length: COUNT }, () => {
-    const angle = Math.random() * Math.PI * 2;
-    const speed = 3 + Math.random() * 5;
+  const GLYPHS = ['🪙', '✨'];
+  const pts = Array.from({ length: 40 }, () => {
+    const ang   = Math.random() * Math.PI * 2;
+    const speed = 2.5 + Math.random() * 5;
     return {
       x: cx, y: cy,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed - 2,
+      vx: Math.cos(ang) * speed,
+      vy: Math.sin(ang) * speed - 1.5,
       alpha: 1,
-      size: 4 + Math.random() * 6,
-      color: Math.random() > 0.4 ? tierColor : '#ffffff',
+      size: 14 + Math.random() * 10,
+      glyph: GLYPHS[Math.random() > 0.5 ? 0 : 1],
+      color,
     };
   });
 
-  let rafId;
-  function draw() {
+  let raf;
+  (function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    let alive = false;
-    for (const p of particles) {
+    let any = false;
+    for (const p of pts) {
       if (p.alpha <= 0) continue;
-      alive = true;
+      any = true;
       p.x    += p.vx;
       p.y    += p.vy;
-      p.vy   += 0.18;
-      p.alpha = Math.max(0, p.alpha - 0.022);
+      p.vy   += 0.2;
+      p.alpha = Math.max(0, p.alpha - 0.02);
+      ctx.save();
       ctx.globalAlpha = p.alpha;
-      ctx.fillStyle   = p.color;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.font        = `${p.size}px serif`;
+      ctx.textAlign   = 'center';
+      ctx.textBaseline= 'middle';
+      ctx.fillText(p.glyph, p.x, p.y);
+      ctx.restore();
     }
-    ctx.globalAlpha = 1;
-    if (alive) rafId = requestAnimationFrame(draw);
+    if (any) raf = requestAnimationFrame(draw);
     else ctx.clearRect(0, 0, canvas.width, canvas.height);
-  }
-  rafId = requestAnimationFrame(draw);
+  })();
 }
 
-// ── Modal ─────────────────────────────────────────────────────────
+// ── Modal ────────────────────────────────────────────────────────
 function showModal(tier, value) {
   document.documentElement.style.setProperty('--tier-color', tier.color);
   modalTierName.textContent = `${tier.label} Chest`;
   modalValue.textContent    = value;
   modalOverlay.classList.add('visible');
 }
-
-function hideModal() {
-  modalOverlay.classList.remove('visible');
-}
+function hideModal() { modalOverlay.classList.remove('visible'); }
 
 collectBtn.addEventListener('click', () => {
   hideModal();
-  resetChest();
+  showIdle();
   isAnimating = false;
-  updateOpenBtn();
+  updateBtn();
 });
 
-// ── Chest reset ───────────────────────────────────────────────────
-function resetChest() {
-  chestOpenDiv.style.display = 'none';
-  chestOpenDiv.style.animation = '';
-
-  const usingPlaceholder = chestIdlePh.style.display === 'flex';
-  if (!usingPlaceholder) {
-    chestIdle.style.display = 'block';
-  } else {
-    chestIdlePh.style.display = 'flex';
-  }
-}
-
-// ── Open sequence ─────────────────────────────────────────────────
+// ── Open sequence ────────────────────────────────────────────────
 function openChest() {
-  if (isAnimating || selectedTierIdx === null) return;
-  const tier = TIERS[selectedTierIdx];
+  if (isAnimating || selectedIdx === null) return;
+  const tier  = TIERS[selectedIdx];
   if (balance < tier.cost) return;
 
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   isAnimating = true;
   openBtn.disabled = true;
 
-  // 1. Deduct cost
   animateBalance(balance - tier.cost);
+  const prize = tier.pool[Math.floor(Math.random() * tier.pool.length)];
 
-  if (reduced) {
-    // Skip animations — jump to result
-    const prize = tier.pool[Math.floor(Math.random() * tier.pool.length)];
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    showOpenState();
     showModal(tier, prize);
     return;
   }
 
-  // 2. Shake
+  // Step 1: shake
   chestWrap.classList.add('shaking');
-  chestWrap.addEventListener('animationend', onShakeEnd, { once: true });
+  chestWrap.addEventListener('animationend', afterShake, { once: true });
 
-  function onShakeEnd() {
+  function afterShake() {
     chestWrap.classList.remove('shaking');
 
-    // 3. Sprite animation
-    chestIdle.style.display = 'none';
-    chestIdlePh.style.display = 'none';
-    chestOpenDiv.style.display = 'block';
-    chestOpenDiv.style.backgroundPosition = '0 0';
-    // Force reflow so animation restarts cleanly
-    void chestOpenDiv.offsetWidth;
-    chestOpenDiv.style.animation = 'chestOpen 0.7s steps(17) forwards';
+    // Step 2: play video
+    showVideo();
+    chestVideo.currentTime = 0;
 
-    chestOpenDiv.addEventListener('animationend', onOpenEnd, { once: true });
-  }
+    function onEnded() {
+      chestVideo.removeEventListener('ended', onEnded);
+      // Step 3: open state + particles + modal
+      showOpenState();
+      burstParticles(tier.color);
+      setTimeout(() => showModal(tier, prize), 100);
+    }
 
-  function onOpenEnd() {
-    // 4. Particles
-    burstParticles(tier.color);
+    chestVideo.addEventListener('ended', onEnded);
 
-    // 5. Modal (slight delay so particles are visible first)
-    const prize = tier.pool[Math.floor(Math.random() * tier.pool.length)];
-    setTimeout(() => showModal(tier, prize), 120);
+    const p = chestVideo.play();
+    if (p !== undefined) {
+      p.catch(() => {
+        // Video failed to play — skip straight to result
+        chestVideo.removeEventListener('ended', onEnded);
+        showOpenState();
+        burstParticles(tier.color);
+        setTimeout(() => showModal(tier, prize), 100);
+      });
+    }
   }
 }
 
 openBtn.addEventListener('click', openChest);
 
-// ── Init ──────────────────────────────────────────────────────────
-buildKeys();
+// ── Init ─────────────────────────────────────────────────────────
 balanceDisplay.textContent = `🪙 ${balance}`;
+
+// Show idle chest once image is ready (may already be cached)
+if (chestIdle.complete) {
+  showIdle();
+} else {
+  chestIdle.addEventListener('load',  () => showIdle(), { once: true });
+  chestIdle.addEventListener('error', () => showIdle(), { once: true }); // triggers placeholder path
+}
 </script>
 </body>
 </html>
