@@ -103,6 +103,7 @@ html, body {
   transition: opacity 0.25s ease, transform 0.25s ease;
   opacity: 0.4;
   transform: scale(0.68);
+  will-change: transform, opacity;
 }
 
 .key-item.active {
@@ -116,10 +117,6 @@ html, body {
   height: 220px;
   object-fit: contain;
   display: block;
-}
-
-.key-item img {
-  mix-blend-mode: screen;
 }
 
 .key-ph {
