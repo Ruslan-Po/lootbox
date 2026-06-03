@@ -551,8 +551,12 @@ function makeCard(tier, tierIdx) {
 
 function scrollToCard(idx, animated) {
   const card = allCards[idx];
-  const left = card.offsetLeft - (keyScroll.clientWidth - card.offsetWidth) / 2;
-  keyScroll.scrollTo({ left: Math.max(0, left), behavior: animated ? 'smooth' : 'instant' });
+  const left = Math.max(0, card.offsetLeft - (keyScroll.clientWidth - card.offsetWidth) / 2);
+  if (animated) {
+    keyScroll.scrollTo({ left, behavior: 'smooth' });
+  } else {
+    keyScroll.scrollLeft = left; // truly instant — no animation, no snap delay
+  }
 }
 
 function centeredCardIdx() {
@@ -596,36 +600,49 @@ function updateVisualsRealtime() {
   });
 }
 
+// Real-time visuals during scroll
 keyScroll.addEventListener('scroll', () => {
   if (silentJump) return;
-
-  // Real-time update every frame while scrolling
   if (scrollRaf) cancelAnimationFrame(scrollRaf);
   scrollRaf = requestAnimationFrame(updateVisualsRealtime);
-
-  // Debounce only for tier selection + infinite loop jump
-  clearTimeout(scrollTimer);
-  scrollTimer = setTimeout(() => {
-    const ci = centeredCardIdx();
-    const n  = TIERS.length;
-
-    allCards.forEach((c, i) => c.classList.toggle('active', i === ci));
-    selectedIdx = parseInt(allCards[ci].dataset.tierIdx);
-    updateBtn();
-
-    if (ci < CLONES) {
-      const realIdx = ci + n;
-      silentJump = true;
-      scrollToCard(realIdx, false);
-      requestAnimationFrame(() => { updateVisualsRealtime(); requestAnimationFrame(() => { silentJump = false; }); });
-    } else if (ci >= CLONES + n) {
-      const realIdx = ci - n;
-      silentJump = true;
-      scrollToCard(realIdx, false);
-      requestAnimationFrame(() => { updateVisualsRealtime(); requestAnimationFrame(() => { silentJump = false; }); });
-    }
-  }, 80);
 }, { passive: true });
+
+// Infinite loop jump — fire as soon as snap settles (scrollend),
+// fallback to 80ms debounce for older browsers
+function handleScrollEnd() {
+  if (silentJump) return;
+  const ci = centeredCardIdx();
+  const n  = TIERS.length;
+
+  allCards.forEach((c, i) => c.classList.toggle('active', i === ci));
+  selectedIdx = parseInt(allCards[ci].dataset.tierIdx);
+  updateBtn();
+
+  if (ci < CLONES) {
+    const realIdx = ci + n;
+    silentJump = true;
+    scrollToCard(realIdx, false);
+    updateVisualsRealtime();
+    requestAnimationFrame(() => { silentJump = false; });
+  } else if (ci >= CLONES + n) {
+    const realIdx = ci - n;
+    silentJump = true;
+    scrollToCard(realIdx, false);
+    updateVisualsRealtime();
+    requestAnimationFrame(() => { silentJump = false; });
+  }
+}
+
+if ('onscrollend' in window) {
+  keyScroll.addEventListener('scrollend', handleScrollEnd, { passive: true });
+} else {
+  // Fallback for browsers without scrollend
+  keyScroll.addEventListener('scroll', () => {
+    if (silentJump) return;
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(handleScrollEnd, 80);
+  }, { passive: true });
+}
 
 // ── Balance animation ────────────────────────────────────────────
 let rafBalance = null;
