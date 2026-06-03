@@ -100,7 +100,7 @@ html, body {
   padding: 8px;
   border: 1.5px solid rgba(255, 255, 255, 0.18);
   border-radius: 10px;
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  transition: none;   /* real-time via rAF, no CSS delay */
   opacity: 0.4;
   transform: scale(0.68);
   will-change: transform, opacity;
@@ -577,30 +577,52 @@ function updateVisuals(centeredIdx) {
   updateBtn();
 }
 
+// Real-time scale/opacity from scroll position — no delay
+let scrollRaf = null;
 let scrollTimer = null;
+
+function updateVisualsRealtime() {
+  const mid   = keyScroll.scrollLeft + keyScroll.clientWidth / 2;
+  const cardW = allCards[0]?.offsetWidth || 240;
+
+  allCards.forEach(card => {
+    const cardMid = card.offsetLeft + card.offsetWidth / 2;
+    const t = Math.min(Math.abs(cardMid - mid) / cardW, 2);
+    // t=0 center, t=1 one away, t=2 two away
+    const scale   = t <= 1 ? 1    + (0.82 - 1)    * t : 0.82 + (0.68 - 0.82) * (t - 1);
+    const opacity = t <= 1 ? 1    + (0.65 - 1)    * t : 0.65 + (0.4  - 0.65) * (t - 1);
+    card.style.transform = `scale(${scale.toFixed(3)})`;
+    card.style.opacity   = opacity.toFixed(3);
+  });
+}
+
 keyScroll.addEventListener('scroll', () => {
   if (silentJump) return;
+
+  // Real-time update every frame while scrolling
+  if (scrollRaf) cancelAnimationFrame(scrollRaf);
+  scrollRaf = requestAnimationFrame(updateVisualsRealtime);
+
+  // Debounce only for tier selection + infinite loop jump
   clearTimeout(scrollTimer);
   scrollTimer = setTimeout(() => {
-    const ci  = centeredCardIdx();
-    const n = TIERS.length;
+    const ci = centeredCardIdx();
+    const n  = TIERS.length;
+
+    allCards.forEach((c, i) => c.classList.toggle('active', i === ci));
+    selectedIdx = parseInt(allCards[ci].dataset.tierIdx);
+    updateBtn();
 
     if (ci < CLONES) {
-      // Clone at start → jump to real equivalent, update visuals for real position
       const realIdx = ci + n;
       silentJump = true;
       scrollToCard(realIdx, false);
-      updateVisuals(realIdx);
-      requestAnimationFrame(() => requestAnimationFrame(() => { silentJump = false; }));
+      requestAnimationFrame(() => { updateVisualsRealtime(); requestAnimationFrame(() => { silentJump = false; }); });
     } else if (ci >= CLONES + n) {
-      // Clone at end → jump to real equivalent
       const realIdx = ci - n;
       silentJump = true;
       scrollToCard(realIdx, false);
-      updateVisuals(realIdx);
-      requestAnimationFrame(() => requestAnimationFrame(() => { silentJump = false; }));
-    } else {
-      updateVisuals(ci);
+      requestAnimationFrame(() => { updateVisualsRealtime(); requestAnimationFrame(() => { silentJump = false; }); });
     }
   }, 80);
 }, { passive: true });
