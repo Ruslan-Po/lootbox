@@ -723,11 +723,11 @@ function openChest() {
     return;
   }
 
-  // Step 1: shake — with timeout fallback (animationend unreliable on iOS)
+  // Step 1: shake — timeout fallback because animationend is unreliable on iOS
   chestWrap.classList.add('shaking');
   let shakeFired = false;
   const shakeFallback = setTimeout(() => { if (!shakeFired) { shakeFired = true; afterShake(); } }, 450);
-  chestWrap.addEventListener('animationend', function onShakeEnd() {
+  chestWrap.addEventListener('animationend', function() {
     if (shakeFired) return;
     shakeFired = true;
     clearTimeout(shakeFallback);
@@ -737,39 +737,39 @@ function openChest() {
   function afterShake() {
     chestWrap.classList.remove('shaking');
 
-    // If video has no loadable source (webm not supported), skip straight to result
-    if (chestVideo.readyState === 0 && !chestVideo.src && !chestVideo.currentSrc) {
-      finish();
-      return;
-    }
-
-    // Step 2: play video
-    showVideo();
-    chestVideo.currentTime = 0;
-
     let videoDone = false;
-    // Fallback: if video doesn't end within 5s, proceed anyway
-    const videoFallback = setTimeout(() => { if (!videoDone) { videoDone = true; cleanup(); finish(); } }, 5000);
 
     function cleanup() {
       chestVideo.removeEventListener('ended', onEnded);
-      chestVideo.removeEventListener('error', onVideoError);
-      clearTimeout(videoFallback);
+      chestVideo.removeEventListener('error', onErr);
+      clearTimeout(hardFallback);
     }
-    function onEnded() {
-      if (videoDone) return; videoDone = true; cleanup(); finish();
-    }
-    function onVideoError() {
-      if (videoDone) return; videoDone = true; cleanup(); finish();
-    }
+    function onEnded() { if (videoDone) return; videoDone = true; cleanup(); finish(); }
+    function onErr()   { if (videoDone) return; videoDone = true; cleanup(); finish(); }
 
+    // Hard fallback — fires after video duration + buffer, or 5s max
+    const hardFallback = setTimeout(() => {
+      if (!videoDone) { videoDone = true; cleanup(); finish(); }
+    }, 5000);
+
+    // Step 2: show video, try to play
+    showVideo();
+    chestVideo.currentTime = 0;
     chestVideo.addEventListener('ended', onEnded);
-    chestVideo.addEventListener('error', onVideoError);
+    chestVideo.addEventListener('error', onErr);
 
     const p = chestVideo.play();
     if (p !== undefined) {
       p.catch(() => { if (!videoDone) { videoDone = true; cleanup(); finish(); } });
     }
+
+    // iOS Safari resolves play() even when WebM is unsupported and shows nothing.
+    // Check 300ms later: if video has no renderable frame, skip to result.
+    setTimeout(() => {
+      if (!videoDone && chestVideo.videoWidth === 0 && chestVideo.currentTime === 0) {
+        videoDone = true; cleanup(); finish();
+      }
+    }, 300);
   }
 
   function finish() {
