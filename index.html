@@ -739,6 +739,14 @@ function openChest() {
   function afterShake() {
     chestWrap.classList.remove('shaking');
 
+    // iOS Safari doesn't support WebM/VP9 — canPlayType returns '' → skip video
+    const webmSupported = chestVideo.canPlayType('video/webm; codecs="vp9"') !== '' ||
+                          chestVideo.canPlayType('video/webm') !== '';
+    if (!webmSupported) {
+      finish();
+      return;
+    }
+
     let videoDone = false;
 
     function cleanup() {
@@ -749,12 +757,10 @@ function openChest() {
     function onEnded() { if (videoDone) return; videoDone = true; cleanup(); finish(); }
     function onErr()   { if (videoDone) return; videoDone = true; cleanup(); finish(); }
 
-    // Hard fallback — fires after video duration + buffer, or 5s max
     const hardFallback = setTimeout(() => {
       if (!videoDone) { videoDone = true; cleanup(); finish(); }
     }, 5000);
 
-    // Step 2: show video, try to play
     showVideo();
     chestVideo.currentTime = 0;
     chestVideo.addEventListener('ended', onEnded);
@@ -764,14 +770,6 @@ function openChest() {
     if (p !== undefined) {
       p.catch(() => { if (!videoDone) { videoDone = true; cleanup(); finish(); } });
     }
-
-    // iOS Safari resolves play() even when WebM is unsupported and shows nothing.
-    // Check 300ms later: if video has no renderable frame, skip to result.
-    setTimeout(() => {
-      if (!videoDone && chestVideo.videoWidth === 0 && chestVideo.currentTime === 0) {
-        videoDone = true; cleanup(); finish();
-      }
-    }, 300);
   }
 
   function finish() {
