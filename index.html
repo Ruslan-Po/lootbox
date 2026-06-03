@@ -46,22 +46,44 @@ html, body {
 
 /* ── Key selector — top 20% ─────────────────────────────────────── */
 #key-section {
-  flex: 0 0 20%;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
-  min-height: 0;
+  padding: 12px 0;
+  position: relative;
+  overflow: hidden;        /* clips carousel at edges for gradient */
+}
+
+/* gradient fade on left and right edges */
+#key-section::before,
+#key-section::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 80px;
+  z-index: 3;
+  pointer-events: none;
+}
+#key-section::before {
+  left: 0;
+  background: linear-gradient(to right, #010123 0%, transparent 100%);
+}
+#key-section::after {
+  right: 0;
+  background: linear-gradient(to left, #010123 0%, transparent 100%);
 }
 
 #key-scroll {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  padding: 6px 20px;
+  /* центрируем первую и последнюю карточку: полвьюпорта − полкарточки (220px img + 16px padding) */
+  padding: 0 calc(50% - 120px);
   width: 100%;
-  align-items: flex-start;
+  align-items: center;
 }
 #key-scroll::-webkit-scrollbar { display: none; }
 
@@ -73,16 +95,23 @@ html, body {
   align-items: center;
   gap: 4px;
   cursor: pointer;
-  transition: transform 0.2s ease;
   padding: 8px;
   border: 1.5px solid rgba(255, 255, 255, 0.18);
   border-radius: 10px;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  opacity: 0.4;
+  transform: scale(0.68);
+}
+
+.key-item.active {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .key-item img,
 .key-item .key-ph {
-  width: 86px;
-  height: 86px;
+  width: 220px;
+  height: 220px;
   object-fit: contain;
   display: block;
 }
@@ -95,12 +124,12 @@ html, body {
   display: flex !important;
   align-items: center;
   justify-content: center;
-  font-size: 36px;
+  font-size: 88px;
   border-radius: 10px;
 }
 
 .key-item .key-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   color: #bbb;
   text-transform: uppercase;
@@ -112,10 +141,6 @@ html, body {
   font-size: 11px;
   color: #888;
   line-height: 1;
-}
-
-.key-item.selected {
-  transform: scale(1.15);
 }
 
 /* ── Balance — 10% ──────────────────────────────────────────────── */
@@ -162,8 +187,10 @@ html, body {
 #chest-section {
   flex: 1 1 auto;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;           /* горизонтальный центр */
+  justify-content: flex-start;   /* сундук ближе к кнопке */
+  padding-top: clamp(8px, 2dvh, 20px);
   min-height: 0;
   position: relative;
 }
@@ -171,11 +198,12 @@ html, body {
 /* Chest wrap: NO bg, NO border, NO border-radius */
 #chest-wrap {
   position: relative;
-  width: var(--chest-size);
-  height: var(--chest-size);
+  width: min(var(--chest-size), 90vw);
+  aspect-ratio: 1 / 1;   /* always square — ensures PNG and video match */
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;         /* don't let flex crush the height */
 }
 
 #chest-idle,
@@ -386,16 +414,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ── Tier data ────────────────────────────────────────────────────
 const TIERS = [
-  { id:'iron',    label:'Iron',    color:'#8a8a8a', cost:50,  pool:[1,2,3],    img:'assets/keys/iron.png' },
-  { id:'bronze',  label:'Bronze',  color:'#cd7f32', cost:100, pool:[4,5,6],    img:'assets/keys/bronze.png' },
-  { id:'silver',  label:'Silver',  color:'#c0c0c0', cost:200, pool:[7,8,9],    img:'assets/keys/silver.png' },
-  { id:'gold',    label:'Gold',    color:'#ffd700', cost:400, pool:[10,11,12], img:'assets/keys/gold.png' },
-  { id:'diamond', label:'Diamond', color:'#b9f2ff', cost:800, pool:[13,14,15], img:'assets/keys/diamond.png' },
+  { id:'iron',    label:'Iron',    color:'#8a8a8a', bg:'#0d111d', cost:50,  pool:[1,2,3],    img:'assets/keys/iron.png' },
+  { id:'bronze',  label:'Bronze',  color:'#cd7f32', bg:'#111321', cost:100, pool:[4,5,6],    img:'assets/keys/bronze.png' },
+  { id:'silver',  label:'Silver',  color:'#c0c0c0', bg:'#060e1b', cost:200, pool:[7,8,9],    img:'assets/keys/silver.png' },
+  { id:'gold',    label:'Gold',    color:'#ffd700', bg:'#11141f', cost:400, pool:[10,11,12], img:'assets/keys/gold.png' },
+  { id:'diamond', label:'Diamond', color:'#b9f2ff', bg:'#07101e', cost:800, pool:[13,14,15], img:'assets/keys/diamond.png' },
 ];
 
 // ── State ────────────────────────────────────────────────────────
 let balance        = 1500;
-let selectedIdx    = null;
+let selectedIdx    = 0;   // always the centered key
 let isAnimating    = false;
 
 // ── DOM ──────────────────────────────────────────────────────────
@@ -441,51 +469,131 @@ function showOpenState() {
   chestOpenPh.style.display= imgOk(chestOpen) ? 'none'  : 'flex';
 }
 
-// ── Build key selector ───────────────────────────────────────────
+// ── Infinite key carousel ────────────────────────────────────────
+const CLONES = 2;   // clones prepended and appended
+let allCards  = []; // all DOM nodes including clones
+let silentJump = false;
+
+function makeCard(tier, tierIdx) {
+  const item = document.createElement('div');
+  item.className = 'key-item';
+  item.dataset.tierIdx = tierIdx;
+  item.style.background = tier.bg;
+
+  const img = document.createElement('img');
+  img.alt    = `${tier.label} key`;
+  img.width  = 220;
+  img.height = 220;
+  img.onerror = () => {
+    const ph = document.createElement('div');
+    ph.className = 'key-ph';
+    ph.style.background = tier.color + '22';
+    ph.style.border     = `2px solid ${tier.color}44`;
+    ph.textContent = '🗝️';
+    img.replaceWith(ph);
+  };
+  img.src = tier.img;
+
+  const label = document.createElement('div');
+  label.className   = 'key-label';
+  label.textContent = tier.label;
+
+  const cost = document.createElement('div');
+  cost.className   = 'key-cost';
+  cost.textContent = `🪙 ${tier.cost}`;
+
+  item.append(img, label, cost);
+  item.addEventListener('click', () => {
+    if (isAnimating) return;
+    const i = allCards.indexOf(item);
+    scrollToCard(i, true);
+  });
+  return item;
+}
+
 (function buildKeys() {
+  const n = TIERS.length;
+  // Prepend clones of last CLONES tiers
+  for (let i = n - CLONES; i < n; i++) {
+    const c = makeCard(TIERS[i], i);
+    keyScroll.appendChild(c);
+    allCards.push(c);
+  }
+  // Real items
   TIERS.forEach((tier, idx) => {
-    const item = document.createElement('div');
-    item.className = 'key-item';
+    const c = makeCard(tier, idx);
+    keyScroll.appendChild(c);
+    allCards.push(c);
+  });
+  // Append clones of first CLONES tiers
+  for (let i = 0; i < CLONES; i++) {
+    const c = makeCard(TIERS[i], i);
+    keyScroll.appendChild(c);
+    allCards.push(c);
+  }
 
-    const img = document.createElement('img');
-    img.alt    = `${tier.label} key`;
-    img.width  = 86;
-    img.height = 86;
-    img.onerror = () => {
-      const ph = document.createElement('div');
-      ph.className = 'key-ph';
-      ph.style.background = tier.color + '22';
-      ph.style.border     = `2px solid ${tier.color}44`;
-      ph.textContent = '🗝️';
-      img.replaceWith(ph);
-    };
-    img.src = tier.img; // src set after onerror
-
-    const label = document.createElement('div');
-    label.className   = 'key-label';
-    label.textContent = tier.label;
-
-    const cost = document.createElement('div');
-    cost.className   = 'key-cost';
-    cost.textContent = `🪙 ${tier.cost}`;
-
-    item.append(img, label, cost);
-    item.addEventListener('click', () => selectTier(idx));
-    keyScroll.appendChild(item);
+  // Start on first real item
+  requestAnimationFrame(() => {
+    scrollToCard(CLONES, false);
+    updateVisuals(CLONES);
   });
 })();
 
-function selectTier(idx) {
-  if (isAnimating) return;
-  selectedIdx = idx;
-  const tier = TIERS[idx];
-  document.querySelectorAll('.key-item').forEach((el, i) => {
-    const on = i === idx;
-    el.classList.toggle('selected', on);
-    el.style.setProperty('--item-glow', on ? tier.color : 'transparent');
+function scrollToCard(idx, animated) {
+  const card = allCards[idx];
+  const left = card.offsetLeft - (keyScroll.clientWidth - card.offsetWidth) / 2;
+  keyScroll.scrollTo({ left: Math.max(0, left), behavior: animated ? 'smooth' : 'instant' });
+}
+
+function centeredCardIdx() {
+  const mid = keyScroll.scrollLeft + keyScroll.clientWidth / 2;
+  let best = 0, minDist = Infinity;
+  allCards.forEach((card, i) => {
+    const d = Math.abs(card.offsetLeft + card.offsetWidth / 2 - mid);
+    if (d < minDist) { minDist = d; best = i; }
   });
+  return best;
+}
+
+function updateVisuals(centeredIdx) {
+  allCards.forEach((card, i) => {
+    const dist = Math.abs(i - centeredIdx);
+    if (dist === 0)      { card.style.transform = 'scale(1)';    card.style.opacity = '1'; }
+    else if (dist === 1) { card.style.transform = 'scale(0.82)'; card.style.opacity = '0.65'; }
+    else                 { card.style.transform = 'scale(0.68)'; card.style.opacity = '0.4'; }
+    card.classList.toggle('active', i === centeredIdx);
+  });
+  selectedIdx = parseInt(allCards[centeredIdx].dataset.tierIdx);
   updateBtn();
 }
+
+let scrollTimer = null;
+keyScroll.addEventListener('scroll', () => {
+  if (silentJump) return;
+  clearTimeout(scrollTimer);
+  scrollTimer = setTimeout(() => {
+    const ci  = centeredCardIdx();
+    const n = TIERS.length;
+
+    if (ci < CLONES) {
+      // Clone at start → jump to real equivalent, update visuals for real position
+      const realIdx = ci + n;
+      silentJump = true;
+      scrollToCard(realIdx, false);
+      updateVisuals(realIdx);
+      requestAnimationFrame(() => requestAnimationFrame(() => { silentJump = false; }));
+    } else if (ci >= CLONES + n) {
+      // Clone at end → jump to real equivalent
+      const realIdx = ci - n;
+      silentJump = true;
+      scrollToCard(realIdx, false);
+      updateVisuals(realIdx);
+      requestAnimationFrame(() => requestAnimationFrame(() => { silentJump = false; }));
+    } else {
+      updateVisuals(ci);
+    }
+  }, 80);
+}, { passive: true });
 
 // ── Balance animation ────────────────────────────────────────────
 let rafBalance = null;
@@ -512,10 +620,7 @@ function animateBalance(to) {
 }
 
 function updateBtn() {
-  openBtn.disabled =
-    selectedIdx === null ||
-    isAnimating ||
-    balance < TIERS[selectedIdx].cost;
+  openBtn.disabled = isAnimating || balance < TIERS[selectedIdx].cost;
 }
 
 // ── Canvas particles ─────────────────────────────────────────────
@@ -591,7 +696,7 @@ collectBtn.addEventListener('click', () => {
 
 // ── Open sequence ────────────────────────────────────────────────
 function openChest() {
-  if (isAnimating || selectedIdx === null) return;
+  if (isAnimating) return;
   const tier  = TIERS[selectedIdx];
   if (balance < tier.cost) return;
 
