@@ -30,7 +30,7 @@
 }
 
 #chest-idle  { display: block; }
-#chest-video { mix-blend-mode: screen; display: none; }
+#chest-video { display: none; }
 #chest-open  { display: none; }
 
 #chest-idle-ph,
