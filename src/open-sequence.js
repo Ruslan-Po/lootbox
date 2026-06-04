@@ -39,12 +39,10 @@ export function runOpenSequence(tier, prize, { onDone } = {}) {
   function afterShake() {
     chestWrap.classList.remove('shaking');
 
-    // iOS Safari doesn't support WebM/VP9 — canPlayType returns '' → skip video
-    const webmSupported =
-      chestVideo.canPlayType('video/webm; codecs="vp9"') !== '' ||
-      chestVideo.canPlayType('video/webm') !== '';
+    // Check MP4 support (should be universal, but guard anyway)
+    const mp4Supported = chestVideo.canPlayType('video/mp4') !== '';
 
-    if (!webmSupported) {
+    if (!mp4Supported) {
       finish();
       return;
     }
