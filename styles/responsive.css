@@ -5,11 +5,11 @@
 
   .key-item img,
   .key-item .key-ph {
-    width: 175px;
-    height: 175px;
+    width: 166px;
+    height: 166px;
   }
-  .key-ph { font-size: 70px; }
-  #key-scroll { padding: 0 calc(50% - 95px); }
+  .key-ph { font-size: 66px; }
+  #key-scroll { padding: 0 calc(50% - 91px); }
 
   #chest-wrap { width: min(var(--chest-size), 62vw); }
 
