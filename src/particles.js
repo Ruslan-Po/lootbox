@@ -1,5 +1,7 @@
-const GLYPHS = ['🪙', '✨'];
-const COUNT  = 40;
+const COUNT = 40;
+
+const coinImg = new Image();
+coinImg.src = 'assets/coin/coin.png';
 
 export function burstParticles(color) {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -18,13 +20,14 @@ export function burstParticles(color) {
   const pts = Array.from({ length: COUNT }, () => {
     const ang   = Math.random() * Math.PI * 2;
     const speed = 2.5 + Math.random() * 5;
+    const isCoin = Math.random() > 0.3;
     return {
       x: cx, y: cy,
       vx: Math.cos(ang) * speed,
       vy: Math.sin(ang) * speed - 1.5,
       alpha: 1,
       size:  14 + Math.random() * 10,
-      glyph: GLYPHS[Math.random() > 0.5 ? 0 : 1],
+      isCoin,
     };
   });
 
@@ -40,11 +43,15 @@ export function burstParticles(color) {
       p.vy   += 0.2;
       p.alpha = Math.max(0, p.alpha - 0.02);
       ctx.save();
-      ctx.globalAlpha  = p.alpha;
-      ctx.font         = `${p.size}px serif`;
-      ctx.textAlign    = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(p.glyph, p.x, p.y);
+      ctx.globalAlpha = p.alpha;
+      if (p.isCoin && coinImg.complete) {
+        ctx.drawImage(coinImg, p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+      } else {
+        ctx.font         = `${p.size}px serif`;
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('✨', p.x, p.y);
+      }
       ctx.restore();
     }
     if (any) raf = requestAnimationFrame(draw);
