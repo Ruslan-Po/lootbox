@@ -1,8 +1,39 @@
-import { showVideo, showOpenState } from './chest.js';
+import { showOpenState } from './chest.js';
 import { burstParticles } from './particles.js';
 import { showModal } from './modal.js';
 
+// Генерирует кейфреймы: одновременно трясёт и увеличивает на 30%
+function buildShakeGrowFrames(cycles = 10, amp = 9) {
+  const frames = [];
+  const steps  = cycles * 4;
+
+  for (let i = 0; i <= steps; i++) {
+    const t     = i / steps;
+    const scale = 1 + 0.3 * t;
+    // синусоида для тряски, амплитуда чуть уменьшается к концу
+    const tx    = Math.sin((i / 4) * 2 * Math.PI) * amp * (1 - t * 0.4);
+    frames.push({
+      transform: `scale(${scale.toFixed(3)}) translateX(${tx.toFixed(1)}px)`,
+      offset:    t,
+    });
+  }
+  return frames;
+}
+
 export function runOpenSequence(tier, prize, { onDone } = {}) {
+  const chestWrap = document.getElementById('chest-wrap');
+
+  function finish() {
+    chestWrap.style.transform = '';
+    showOpenState();
+    burstParticles(tier.color);
+    setTimeout(() => {
+      showModal(tier, prize);
+      onDone?.();
+    }, 900);
+  }
+
+  // Reduced motion → пропускаем анимацию
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     showOpenState();
     showModal(tier, prize);
@@ -10,104 +41,25 @@ export function runOpenSequence(tier, prize, { onDone } = {}) {
     return;
   }
 
-  const chestWrap = document.getElementById('chest-wrap');
-  const chestVideo = document.getElementById('chest-video');
+  // Шаг 1: тряска + рост 100% → 130% за 3 секунды
+  const growAnim = chestWrap.animate(
+    buildShakeGrowFrames(),
+    { duration: 2000, fill: 'forwards', easing: 'linear' }
+  );
 
-  function finish() {
-    showOpenState();
-    burstParticles(tier.color);
-    setTimeout(() => {
-      showModal(tier, prize);
-      onDone?.();
-    }, 100);
-  }
+  growAnim.onfinish = () => {
+    // Шаг 2: уменьшение 130% → 100% за 0.5 секунды
+    const shrinkAnim = chestWrap.animate(
+      [
+        { transform: 'scale(1.3) translateX(0)' },
+        { transform: 'scale(1.0) translateX(0)' },
+      ],
+      { duration: 250, fill: 'forwards', easing: 'ease-in' }
+    );
 
-  // Step 1: shake — with timeout fallback (animationend unreliable on iOS)
-  chestWrap.classList.add('shaking');
-  let shakeFired = false;
-  const shakeFallback = setTimeout(() => {
-    if (!shakeFired) { shakeFired = true; afterShake(); }
-  }, 450);
-
-  chestWrap.addEventListener('animationend', function onShakeEnd() {
-    if (shakeFired) return;
-    shakeFired = true;
-    clearTimeout(shakeFallback);
-    afterShake();
-  }, { once: true });
-
-  function afterShake() {
-    chestWrap.classList.remove('shaking');
-
-    // Check MP4 support (should be universal, but guard anyway)
-    const mp4Supported = chestVideo.canPlayType('video/mp4') !== '';
-
-    if (!mp4Supported) {
+    shrinkAnim.onfinish = () => {
+      // Шаг 3: показываем открытый сундук
       finish();
-      return;
-    }
-
-    let videoDone = false;
-
-    function cleanup() {
-      chestVideo.removeEventListener('ended', onEnded);
-      chestVideo.removeEventListener('error', onErr);
-      clearTimeout(hardFallback);
-    }
-    function onEnded() { if (videoDone) return; videoDone = true; cleanup(); finish(); }
-    function onErr()   { if (videoDone) return; videoDone = true; cleanup(); finish(); }
-
-    const hardFallback = setTimeout(() => {
-      if (!videoDone) { videoDone = true; cleanup(); finish(); }
-    }, 5000);
-
-    chestVideo.addEventListener('ended', onEnded);
-    chestVideo.addEventListener('error', onErr);
-
-    // Seek to first frame while idle chest is still visible.
-    // Only switch display once the frame is decoded — eliminates flash.
-    chestVideo.currentTime = 0;
-
-    function startPlayback() {
-      const idleEl = document.getElementById('chest-idle');
-
-      // Show video on top of idle, fully transparent
-      chestVideo.style.opacity = '0';
-      chestVideo.style.display = 'block';
-
-      const p = chestVideo.play();
-      if (p !== undefined) {
-        p.catch(() => {
-          if (!videoDone) { videoDone = true; cleanup(); finish(); }
-        });
-      }
-
-      // Crossfade: video fades in, idle fades out simultaneously
-      requestAnimationFrame(() => {
-        const dur = '0.12s';
-        chestVideo.style.transition = `opacity ${dur} ease`;
-        idleEl.style.transition     = `opacity ${dur} ease`;
-        chestVideo.style.opacity    = '1';
-        idleEl.style.opacity        = '0';
-
-        setTimeout(() => {
-          idleEl.style.display    = 'none';
-          idleEl.style.opacity    = '';
-          idleEl.style.transition = '';
-          chestVideo.style.transition = '';
-        }, 130);
-      });
-    }
-
-    if (chestVideo.readyState >= 2) {
-      startPlayback();
-    } else {
-      const onCanPlay = () => { clearTimeout(canPlayTimeout); startPlayback(); };
-      const canPlayTimeout = setTimeout(() => {
-        chestVideo.removeEventListener('canplay', onCanPlay);
-        startPlayback();
-      }, 400);
-      chestVideo.addEventListener('canplay', onCanPlay, { once: true });
-    }
-  }
+    };
+  };
 }
