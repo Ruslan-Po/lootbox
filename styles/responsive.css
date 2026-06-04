@@ -1,15 +1,20 @@
 @media (max-width: 480px) {
-  #key-section { max-height: 32dvh; }
+  #app { padding-top: 10px; }
+
+  #key-section { max-height: 38dvh; }
 
   .key-item img,
   .key-item .key-ph {
-    width: 140px;
-    height: 140px;
+    width: 175px;
+    height: 175px;
   }
-  .key-ph { font-size: 56px; }
-  #key-scroll { padding: 0 calc(50% - 80px); }
+  .key-ph { font-size: 70px; }
+  #key-scroll { padding: 0 calc(50% - 95px); }
 
-  #chest-wrap { width: min(var(--chest-size), 78vw); }
+  #chest-wrap { width: min(var(--chest-size), 62vw); }
+
+  #balance-section { flex: 0 0 8%; }
+  #btn-section { flex: 0 0 52px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
