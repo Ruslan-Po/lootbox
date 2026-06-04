@@ -1,4 +1,4 @@
-export let balance     = 1500;
+export let balance     = 300;
 export let selectedIdx = 0;
 export let isAnimating = false;
 

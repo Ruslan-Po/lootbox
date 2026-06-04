@@ -1,5 +1,5 @@
 import { TIERS, CLONES } from './config.js';
-import { setSelectedIdx } from './state.js';
+import { balance, setSelectedIdx } from './state.js';
 
 let allCards   = [];
 let silentJump = false;
@@ -35,8 +35,15 @@ function makeCard(tier, tierIdx) {
   label.textContent = tier.label;
 
   const cost = document.createElement('div');
-  cost.className   = 'key-cost';
-  cost.textContent = `🪙 ${tier.cost}`;
+  cost.className = 'key-cost';
+  const coinImg = document.createElement('img');
+  coinImg.src = 'assets/coin/coin.png';
+  coinImg.className = 'coin-icon';
+  coinImg.alt = 'coin';
+  cost.append(coinImg, ` ${tier.cost}`);
+
+  const locked = balance < tier.cost;
+  if (locked) item.classList.add('locked');
 
   item.append(img, label, cost);
   item.addEventListener('click', () => {
@@ -149,10 +156,12 @@ export function initCarousel({ onTierChange } = {}) {
     allCards.push(c);
   }
 
-  // Start on first real item
+  // Start on highest affordable tier
+  const startTierIdx = TIERS.reduce((best, tier, i) => tier.cost <= balance ? i : best, 0);
+  const startCardIdx = CLONES + startTierIdx;
   requestAnimationFrame(() => {
-    scrollToCard(CLONES, false);
-    updateVisuals(CLONES);
+    scrollToCard(startCardIdx, false);
+    updateVisuals(startCardIdx);
   });
 
   // Real-time scale during scroll

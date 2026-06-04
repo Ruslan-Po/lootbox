@@ -4,7 +4,7 @@ const display = () => document.getElementById('balance-display');
 let rafId = null;
 
 export function renderBalance(value) {
-  display().textContent = `🪙 ${value}`;
+  display().innerHTML = `<span class="balance-label">BALANCE:</span> ${value}`;
 }
 
 export function animateBalance(to) {
