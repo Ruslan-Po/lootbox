@@ -61,16 +61,37 @@ export function runOpenSequence(tier, prize, { onDone } = {}) {
       if (!videoDone) { videoDone = true; cleanup(); finish(); }
     }, 5000);
 
-    showVideo();
-    chestVideo.currentTime = 0;
     chestVideo.addEventListener('ended', onEnded);
     chestVideo.addEventListener('error', onErr);
 
-    const p = chestVideo.play();
-    if (p !== undefined) {
-      p.catch(() => {
-        if (!videoDone) { videoDone = true; cleanup(); finish(); }
-      });
+    // Seek to first frame while idle chest is still visible.
+    // Only switch display once the frame is decoded — eliminates flash.
+    chestVideo.currentTime = 0;
+
+    function startPlayback() {
+      showVideo(); // idle hidden, video shown — first frame already ready
+      const p = chestVideo.play();
+      if (p !== undefined) {
+        p.catch(() => {
+          if (!videoDone) { videoDone = true; cleanup(); finish(); }
+        });
+      }
+    }
+
+    if (chestVideo.readyState >= 2) {
+      // First frame already available
+      startPlayback();
+    } else {
+      // Wait for first frame to be decoded, then switch
+      const onCanPlay = () => {
+        clearTimeout(canPlayTimeout);
+        startPlayback();
+      };
+      const canPlayTimeout = setTimeout(() => {
+        chestVideo.removeEventListener('canplay', onCanPlay);
+        startPlayback(); // show anyway after 400ms
+      }, 400);
+      chestVideo.addEventListener('canplay', onCanPlay, { once: true });
     }
   }
 }
