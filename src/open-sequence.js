@@ -24,8 +24,6 @@ export function runOpenSequence(tier, prize, { onDone } = {}) {
   const chestWrap = document.getElementById('chest-wrap');
 
   function finish() {
-    chestWrap.style.transform = '';
-    showOpenState();
     burstParticles(tier.color);
     setTimeout(() => {
       showModal(tier, prize);
@@ -48,17 +46,25 @@ export function runOpenSequence(tier, prize, { onDone } = {}) {
   );
 
   growAnim.onfinish = () => {
-    // Шаг 2: уменьшение 130% → 100% за 0.5 секунды
+    // Фиксируем текущий transform в inline-стиле, отменяем анимацию
+    growAnim.commitStyles();
+    growAnim.cancel();
+
+    // Шаг 2: закрытый сундук резко сжимается
     const shrinkAnim = chestWrap.animate(
       [
-        { transform: 'scale(1.3) translateX(0)' },
-        { transform: 'scale(1.0) translateX(0)' },
+        { transform: 'scale(1.3)' },
+        { transform: 'scale(1.0)' },
       ],
       { duration: 250, fill: 'forwards', easing: 'ease-in' }
     );
 
     shrinkAnim.onfinish = () => {
-      // Шаг 3: показываем открытый сундук
+      shrinkAnim.commitStyles();
+      shrinkAnim.cancel();
+      // Шаг 3: удар — мгновенно меняем на открытый сундук
+      showOpenState();
+      // Шаг 4: пауза → показываем приз
       finish();
     };
   };
