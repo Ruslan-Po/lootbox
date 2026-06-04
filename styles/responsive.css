@@ -1,0 +1,20 @@
+@media (max-width: 480px) {
+  #key-section { max-height: 32dvh; }
+
+  .key-item img,
+  .key-item .key-ph {
+    width: 140px;
+    height: 140px;
+  }
+  .key-ph { font-size: 56px; }
+  #key-scroll { padding: 0 calc(50% - 80px); }
+
+  #chest-wrap { width: min(var(--chest-size), 78vw); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

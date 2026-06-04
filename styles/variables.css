@@ -1,0 +1,10 @@
+:root {
+  --bg:         #010123;
+  --c-iron:     #8a8a8a;
+  --c-bronze:   #cd7f32;
+  --c-silver:   #c0c0c0;
+  --c-gold:     #ffd700;
+  --c-diamond:  #b9f2ff;
+  --tier-color: #ffffff;
+  --chest-size: 420px;
+}
